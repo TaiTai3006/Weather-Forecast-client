@@ -6,8 +6,11 @@ import Stack from "@mui/material/Stack";
 import Autocomplete from "@mui/material/Autocomplete";
 import axios from "axios";
 import Modal from "react-bootstrap/Modal";
+import { useLocation } from "react-router-dom";
+import cities from 'cities.json';
 
 const App = () => {
+  
   const getCookie = (name) => {
     var nameEQ = name + "=";
     var ca = document.cookie.split(";");
@@ -19,7 +22,10 @@ const App = () => {
     return null;
   };
 
+
+
   const [show, setShow] = useState(false);
+  const [showActive, setShowActive] = useState(true);
 
   const handleClose = () => setShow(false);
   const handleShow = () => {
@@ -41,13 +47,13 @@ const App = () => {
   const [userData, setUserData] = useState(
     userDataLocalStorage
       ? userDataLocalStorage
-      : { gmail: "", location: "", status: 0 }
+      : { gmail: "", location: "", status: 0, active: 1 }
   );
 
   const [weatherData, setWeatherData] = useState(
     weatherInfoDataLocalStorage ? weatherInfoDataLocalStorage : []
   );
-  const [location, setLocation] = useState("tokyo");
+  const [location, setLocation] = useState(weatherData.name);
 
   const [searchHistory, setSearchHistory] = useState(
     searchHistoryCookies ? searchHistoryCookies : []
@@ -55,9 +61,38 @@ const App = () => {
 
   const [inputEmail, setInputEmail] = useState("");
 
+  const [days, setDays] = useState(5);
+
+  const url = useLocation();
+
+  useEffect(() => {
+    const params = new URLSearchParams(url.search);
+    const token = params.get("token");
+    if (token) {
+      console.log(token);
+      navigator.geolocation.getCurrentPosition(
+        ({ coords: { latitude, longitude } }) => {
+          axios
+            .post("http://localhost:8000/emailConfirmation/", {
+              gmail: userData.gmail,
+              location: `${latitude},${longitude}`,
+              token: token,
+            })
+            .then(function (response) {
+              setUserData((prData) => response.data);
+              localStorage.setItem("user", JSON.stringify(response.data));
+            })
+            .catch(function (error) {
+              console.log(error);
+            });
+        }
+      );
+    }
+  }, [location]);
+
   const handleUnsubcribe = () => {
     axios
-      .post("https://taitai3006.pythonanywhere.com/logout/", {
+      .post("http://localhost:8000/logout/", {
         gmail: userData.gmail,
       })
       .then(function (response) {
@@ -74,11 +109,12 @@ const App = () => {
     navigator.geolocation.getCurrentPosition(
       ({ coords: { latitude, longitude } }) => {
         axios
-          .post("https://taitai3006.pythonanywhere.com/register/", {
+          .post("http://localhost:8000/register/", {
             gmail: inputEmail,
             location: `${latitude},${longitude}`,
           })
           .then(function (response) {
+            if (response.data.active === 0 ) setShowActive(false)
             setUserData((prData) => response.data);
             localStorage.setItem("user", JSON.stringify(response.data));
           })
@@ -87,6 +123,7 @@ const App = () => {
           });
       }
     );
+    
     setShow(false);
   };
 
@@ -122,6 +159,7 @@ const App = () => {
 
   const handleSearch = () => {
     fetchWeatherData(location);
+    setDays(5);
   };
 
   const handleCurrentLocation = () => {
@@ -137,24 +175,27 @@ const App = () => {
 
   const fetchLocationByIP = async () => {
     try {
-      const response = await axios.get(`https://taitai3006.pythonanywhere.com/getLocationByIP`);
+      const response = await axios.get(
+        `https://taitai3006.pythonanywhere.com/getLocationByIP`
+      );
       fetchWeatherData(response.data);
     } catch (error) {
       console.error(error);
     }
   };
 
-  const fetchWeatherData = async (location) => {
+  const fetchWeatherData = async (location, day = 5) => {
     const cookieValue = JSON.parse(getCookie(location));
+    console.log(cookieValue);
 
-    if (cookieValue) {
+    if (cookieValue && cookieValue.forecastday.length === day) {
       setWeatherData(cookieValue);
       return 0;
     }
 
     try {
       const response = await axios.get(
-        `https://taitai3006.pythonanywhere.com/getWeatherInfo/?q=${location}`
+        `http://localhost:8000/getWeatherInfo/?q=${location}&days=${day}`
       );
 
       const data = {
@@ -182,7 +223,14 @@ const App = () => {
     !weatherData && fetchWeatherData(location);
   }, []);
 
-  console.log(location);
+  const handleLoadMore = () => {
+    days !== 13 && setDays((prvDays) => prvDays + 4);
+    weatherData &&
+      weatherData?.forecastday?.length !== 14 &&
+      fetchWeatherData(location, days + 4);
+  };
+
+  console.log(location, days);
 
   return (
     <div>
@@ -235,24 +283,28 @@ const App = () => {
           >
             Use Current Location
           </button>
-          <div className="my-4">
-            <p>
-              {userData.status === 0
-                ? "** Click the subscribe button to receive weather information."
-                : `Hi, ${userData.gmail}.`}
-            </p>
-            <button
-              style={{
-                backgroundColor: userData.status === 0 ? "red" : "#6C757D",
-              }}
-              type="button"
-              data-toggle="modal"
-              onClick={handleShow}
-              className="btn btn-danger py-2"
-            >
-              {userData.status === 0 ? "Subscribe" : "Unsubscribe"}
-            </button>
-          </div>
+          {showActive ? (
+            <div className="my-4">
+              <p>
+                {userData.status === 0
+                  ? "** Click the subscribe button to receive weather information."
+                  : `Hi, ${userData.gmail}.`}
+              </p>
+              <button
+                style={{
+                  backgroundColor: userData.status === 0 ? "red" : "#6C757D",
+                }}
+                type="button"
+                data-toggle="modal"
+                onClick={handleShow}
+                className="btn btn-danger py-2"
+              >
+                {userData.status === 0 ? "Subscribe" : "Unsubscribe"}
+              </button>
+            </div>
+           ) : (
+           <p>Please confirm your email address to complete the registration</p>
+           )}
         </div>
         <div className="col-lg-8 col-11 box">
           {weatherData &&
@@ -292,27 +344,40 @@ const App = () => {
               </div>
               <h4 className="my-4 fw-bold">4-Day Forecast</h4>
               <div className="row ">
-                {weatherData?.forecastday?.slice(1)?.map((data, index) => (
-                  <div
-                    key={index}
-                    className="col p-4 m-1 text-light rounded"
-                    style={{ backgroundColor: "#6C757D" }}
+                {weatherData?.forecastday
+                  ?.slice(1, days)
+                  ?.map((data, index) => (
+                    <div
+                      key={index}
+                      className="col p-4 m-1 text-light rounded"
+                      style={{ backgroundColor: "#6C757D" }}
+                    >
+                      <h4 className="fw-bold">({data.date})</h4>
+                      <img
+                        src={`https:${data.day.condition.icon}`}
+                        alt={data.day.condition.text}
+                        className="img-wheather-small"
+                      />
+                      <div className="mt-2">
+                        Temp: {data.day.avgtemp_c}&deg;C
+                      </div>
+                      <div className="mt-2">
+                        Wind: {data.day.avgvis_miles} M/S
+                      </div>
+                      <div className="mt-2">
+                        Humidity: {data.day.avghumidity}%
+                      </div>
+                    </div>
+                  ))}
+                {days !== 13 && (
+                  <button
+                    type="button"
+                    onClick={handleLoadMore}
+                    className="btn btn-primary mt-4 py-2"
                   >
-                    <h4 className="fw-bold">({data.date})</h4>
-                    <img
-                      src={`https:${data.day.condition.icon}`}
-                      alt={data.day.condition.text}
-                      className="img-wheather-small"
-                    />
-                    <div className="mt-2">Temp: {data.day.avgtemp_c}&deg;C</div>
-                    <div className="mt-2">
-                      Wind: {data.day.avgvis_miles} M/S
-                    </div>
-                    <div className="mt-2">
-                      Humidity: {data.day.avghumidity}%
-                    </div>
-                  </div>
-                ))}
+                    Load more
+                  </button>
+                )}
               </div>
             </>
           ) : (
