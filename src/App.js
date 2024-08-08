@@ -7,10 +7,9 @@ import Autocomplete from "@mui/material/Autocomplete";
 import axios from "axios";
 import Modal from "react-bootstrap/Modal";
 import { useLocation } from "react-router-dom";
-import cities from 'cities.json';
+import cities from "cities.json";
 
 const App = () => {
-  
   const getCookie = (name) => {
     var nameEQ = name + "=";
     var ca = document.cookie.split(";");
@@ -21,8 +20,6 @@ const App = () => {
     }
     return null;
   };
-
-
 
   const [show, setShow] = useState(false);
   const [showActive, setShowActive] = useState(true);
@@ -73,7 +70,7 @@ const App = () => {
       navigator.geolocation.getCurrentPosition(
         ({ coords: { latitude, longitude } }) => {
           axios
-            .post("http://localhost:8000/emailConfirmation/", {
+            .post("https://taitai3006.pythonanywhere.com/emailConfirmation/", {
               gmail: userData.gmail,
               location: `${latitude},${longitude}`,
               token: token,
@@ -92,7 +89,7 @@ const App = () => {
 
   const handleUnsubcribe = () => {
     axios
-      .post("http://localhost:8000/logout/", {
+      .post("https://taitai3006.pythonanywhere.com/logout/", {
         gmail: userData.gmail,
       })
       .then(function (response) {
@@ -109,12 +106,12 @@ const App = () => {
     navigator.geolocation.getCurrentPosition(
       ({ coords: { latitude, longitude } }) => {
         axios
-          .post("http://localhost:8000/register/", {
+          .post("https://taitai3006.pythonanywhere.com/register/", {
             gmail: inputEmail,
             location: `${latitude},${longitude}`,
           })
           .then(function (response) {
-            if (response.data.active === 0 ) setShowActive(false)
+            if (response.data.active === 0) setShowActive(false);
             setUserData((prData) => response.data);
             localStorage.setItem("user", JSON.stringify(response.data));
           })
@@ -123,7 +120,7 @@ const App = () => {
           });
       }
     );
-    
+
     setShow(false);
   };
 
@@ -195,7 +192,7 @@ const App = () => {
 
     try {
       const response = await axios.get(
-        `http://localhost:8000/getWeatherInfo/?q=${location}&days=${day}`
+        `https://taitai3006.pythonanywhere.com/getWeatherInfo/?q=${location}&days=${day}`
       );
 
       const data = {
@@ -230,6 +227,28 @@ const App = () => {
       fetchWeatherData(location, days + 4);
   };
 
+  const [hintSearch, setHintSearch] = useState([]);
+
+  const handleHintSearch = () => {
+    const searchString = location.toLowerCase();
+    const filteredNames = [];
+    const maxResults = 10; // Giới hạn số kết quả cần tìm
+
+    for (let i = 0; i < cities.length && filteredNames.length < maxResults; i++) {
+      const name = cities[i].name.toLowerCase();
+      if (name.indexOf(searchString) !== -1) {
+        filteredNames.push(cities[i].name);
+      }
+    }
+
+    return filteredNames
+  };
+
+  useEffect(()=>{
+    location ? setHintSearch(handleHintSearch()) : setHintSearch([])
+
+  },[location])
+
   console.log(location, days);
 
   return (
@@ -247,7 +266,7 @@ const App = () => {
               id="free-solo-2-demo"
               disableClearable
               options={
-                searchHistory ? searchHistory.map((option) => option) : []
+                hintSearch.map((option) => option)
               }
               onChange={handleChange}
               onInputChange={handleInputChange}
@@ -302,9 +321,11 @@ const App = () => {
                 {userData.status === 0 ? "Subscribe" : "Unsubscribe"}
               </button>
             </div>
-           ) : (
-           <p>Please confirm your email address to complete the registration</p>
-           )}
+          ) : (
+            <p>
+              Please confirm your email address to complete the registration
+            </p>
+          )}
         </div>
         <div className="col-lg-8 col-11 box">
           {weatherData &&
