@@ -168,6 +168,7 @@ const App = () => {
         fetchLocationByIP();
       }
     );
+    setDays(5);
   };
 
   const fetchLocationByIP = async () => {
@@ -234,20 +235,23 @@ const App = () => {
     const filteredNames = [];
     const maxResults = 10; // Giới hạn số kết quả cần tìm
 
-    for (let i = 0; i < cities.length && filteredNames.length < maxResults; i++) {
+    for (
+      let i = 0;
+      i < cities.length && filteredNames.length < maxResults;
+      i++
+    ) {
       const name = cities[i].name.toLowerCase();
       if (name.indexOf(searchString) !== -1) {
         filteredNames.push(cities[i].name);
       }
     }
 
-    return filteredNames
+    return filteredNames;
   };
 
-  useEffect(()=>{
-    location ? setHintSearch(handleHintSearch()) : setHintSearch([])
-
-  },[location])
+  useEffect(() => {
+    location ? setHintSearch(handleHintSearch()) : setHintSearch([]);
+  }, [location]);
 
   console.log(location, days);
 
@@ -265,9 +269,7 @@ const App = () => {
               freeSolo
               id="free-solo-2-demo"
               disableClearable
-              options={
-                hintSearch.map((option) => option)
-              }
+              options={hintSearch.map((option) => option)}
               onChange={handleChange}
               onInputChange={handleInputChange}
               renderInput={(params) => (
